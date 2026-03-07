@@ -5,8 +5,13 @@ import "./globals.css";
 import AppLayout from "@/components/Layout";
 
 export const metadata: Metadata = {
-  title: "PinkDesign - Ideas",
-  description: "PinkDesign Dashboard",
+  title: "CheeseDesign - Ideas",
+  description: "CheeseDesign Dashboard",
+  icons: {
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
+  },
 };
 
 export default function RootLayout({

@@ -1,0 +1,279 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// ======================================================
+// 1. NGƯỜI DÙNG & PHÂN QUYỀN (Users & Roles)
+// ======================================================
+model User {
+  id                 String   @id @default(cuid())
+  first_name         String?
+  last_name          String?
+  full_name          String?
+  email              String   @unique
+  phone              String?
+  team_mate          Boolean  @default(false)
+  is_supper_admin    Boolean  @default(false)
+  can_access_library Boolean  @default(false)
+  unique_code        String?
+  transaction_code   String?
+  is_google_user     Boolean  @default(false)
+  step               Int      @default(0)
+  status             Boolean  @default(true)
+  enable_api         Boolean  @default(false)
+  api_key            String?
+  is_default         Boolean  @default(false)
+  code               String?
+  kpi                Float?
+  team_id            String?
+
+  // Quản lý số dư ví PINK
+  normal_pink        Float    @default(0)
+  monthly_pink       Float    @default(0)
+
+  avatarId           String?
+  avatar             File?    @relation("UserAvatar", fields: [avatarId], references: [id])
+
+  // Quan hệ 1-N / N-N Phân quyền
+  roles              Role[]   @relation("UserRoles")
+
+  // Quan hệ Quản lý - Nhân viên (Self-relation)
+  managerId          String?
+  manager            User?    @relation("UserManager", fields: [managerId], references: [id])
+  subordinates       User[]   @relation("UserManager")
+
+  // Liên kết với Board
+  boardsAsClient     Board[]  @relation("BoardClient")
+  boardsAsManager    Board[]  @relation("BoardManagers")
+  boardsAsDesigner   Board[]  @relation("BoardDesigners")
+  boardsAsMember     Board[]  @relation("BoardMembers")
+
+  // Liên kết với Idea (Task)
+  ideasAsClient      Idea[]   @relation("IdeaClient")
+  ideasAsDesigner    Idea[]   @relation("IdeaDesigner")
+  ideasAsAuthor      Idea[]   @relation("IdeaAuthor")
+
+  // Liên kết với Hoạt động (Logs/Chat)
+  activitiesMade     Activity[] @relation("ActivityUser")
+  activitiesMentioned Activity[] @relation("ActivityMentioned")
+
+  discounts          Discount[]
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Role {
+  id    String @id @default(cuid())
+  name  String @unique
+  users User[] @relation("UserRoles")
+}
+
+// ======================================================
+// 2. GÓI CƯỚC & KHUYẾN MÃI (Packages & Discounts)
+// ======================================================
+model Package {
+  id        String   @id @default(cuid())
+  title     String
+  qty       Int      @default(0)
+  amount    Float    @default(0)
+  status    Boolean  @default(true)
+  type      String?
+  position   Int      @default(0)
+  isFeatured Boolean  @default(false)
+
+  boards    Board[]
+  discounts Discount[]
+}
+
+model Discount {
+  id           String   @id @default(cuid())
+  offer_amount Float?
+  discount     Float?
+
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  packageId    String?
+  package      Package? @relation(fields: [packageId], references: [id])
+
+  qrCodeId     String?
+  qrCode       File?    @relation("DiscountQRCode", fields: [qrCodeId], references: [id])
+}
+
+// ======================================================
+// 3. THIẾT LẬP HỆ THỐNG CỤC BỘ (Settings)
+// ======================================================
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  title     String
+  settings  Boolean  @default(true)
+}
+
+// ======================================================
+// 4. QUẢN LÝ TÀI NGUYÊN (Files)
+// ======================================================
+model File {
+  id         String  @id @default(cuid())
+  key        String
+  url        String
+  thumbnail  String?
+  file_mime  String?
+  file_name  String?
+  
+  users      User[]      @relation("UserAvatar")
+  coverIdeas Idea[]      @relation("IdeaCover")
+  tasks      Idea[]      @relation("IdeaAttachments")
+  discounts  Discount[]  @relation("DiscountQRCode")
+}
+
+// ======================================================
+// 5. KHÔNG GIAN LÀM VIỆC (Boards)
+// ======================================================
+model Board {
+  id                String   @id @default(cuid())
+  title             String
+  quantity          Int?
+  type              String   @default("normal")
+  dueDate           DateTime?
+  defaultDesignType String?  @default("clone")
+  numberOfIdea      Int      @default(0)
+  pinkCheck         Boolean  @default(false)
+  isPublic          Boolean  @default(false)
+
+  checked_terms        Boolean  @default(false)
+  priceType            String?
+  isAutoAssignDesigner Boolean  @default(false)
+  isAutoApprove        Boolean  @default(false)
+
+  // Dữ liệu mảng object động (Sử dụng String thay vì Json cho SQLite Compatibility)
+  fulfillmentTemplates String?  
+  readMe               String?  
+
+  prices               String?  
+
+  // Liên kết cá nhân
+  clientId          String?
+  client            User?    @relation("BoardClient", fields: [clientId], references: [id])
+  packageId         String?
+  package           Package? @relation(fields: [packageId], references: [id])
+
+  // Liên kết nhóm (Nhiều - Nhiều)
+  boardManagers     User[]   @relation("BoardManagers")
+  designers         User[]   @relation("BoardDesigners")
+  members           User[]   @relation("BoardMembers")
+
+  productTypes      ProductType[] @relation("BoardProductTypes")
+
+  ideas             Idea[]
+  activities        Activity[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// ======================================================
+// 6. CẤU HÌNH SẢN PHẨM & BẢNG GIÁ (Products & Pricing)
+// ======================================================
+model ProductType {
+  id     String  @id @default(cuid())
+  title  String
+  prices Price[]
+  ideas  Idea[]
+  boards Board[] @relation("BoardProductTypes")
+}
+
+model Price {
+  id            String      @id @default(cuid())
+  designType    String      // VD: "new", "clone", "redesign"
+  pink          Float       
+
+  productTypeId String
+  productType   ProductType @relation(fields: [productTypeId], references: [id], onDelete: Cascade)
+}
+
+// ======================================================
+// 7. YÊU CẦU THIẾT KẾ (Ideas / Tasks)
+// ======================================================
+model UrgentType {
+  id        String   @id @default(cuid())
+  title     String
+  pink      Float    // Phí phụ thu
+  ideas     Idea[]
+}
+
+model Idea {
+  id                  String   @id @default(cuid())
+  sku                 String   @unique
+  title               String
+  pink_title          String?
+  description         String?  
+  status              String   @default("draft")
+
+  deadline            DateTime?
+  start_time          DateTime?
+  qty                 Int      @default(1)
+  designType          String?
+  pink                Float    @default(0)
+  is_public           Boolean  @default(false)
+  is_urgent           Boolean  @default(false)
+  using_api           Boolean  @default(false)
+  changeStatusTime    DateTime?
+  fulfillmentTemplate String?
+  design_urls         String?
+  authorId            String?
+  author              User?    @relation("IdeaAuthor", fields: [authorId], references: [id])
+  designerId          String?
+  designer            User?    @relation("IdeaDesigner", fields: [designerId], references: [id])
+  clientId            String?
+  client              User?    @relation("IdeaClient", fields: [clientId], references: [id])
+
+  coverId             String?
+  cover               File?    @relation("IdeaCover", fields: [coverId], references: [id])
+  attachments         File[]   @relation("IdeaAttachments")
+  boardId             String?
+  board               Board?   @relation(fields: [boardId], references: [id])
+  productTypeId       String?
+  productType         ProductType? @relation(fields: [productTypeId], references: [id])
+  urgentTypeId        String?
+  urgentType          UrgentType?  @relation(fields: [urgentTypeId], references: [id])
+
+  activities          Activity[]
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// ======================================================
+// 8. LOGS & TRAO ĐỔI (Activities / Notifies)
+// ======================================================
+model Activity {
+  id              String   @id @default(cuid())
+  type            String   // VD: "comment", "status_change", "charged_pink"
+  message         String?  
+  message2        String?  
+  read            Boolean  @default(false)
+  
+  // NOTE: sqlite doesn't support arrays of scalar types in DB, handled by Prisma relation
+  attachmentKeys  String?    
+
+  userId          String?
+  user            User?    @relation("ActivityUser", fields: [userId], references: [id])
+  ideaId          String?
+  idea            Idea?    @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  boardId         String?
+  board           Board?   @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  mentionedUsers  User[]   @relation("ActivityMentioned")
+
+  createdAt       DateTime @default(now())
+}

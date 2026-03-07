@@ -1,11 +1,24 @@
 "use client";
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Table, Button, Input, Space, Avatar, Typography } from "antd";
 import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined, UserOutlined } from "@ant-design/icons";
+import { getBoards } from '@/actions/board.actions';
 
 const { Title, Text } = Typography;
 
 export default function BoardsPage() {
+    const [data, setData] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const fetchBoards = async () => {
+            setLoading(true);
+            const boards = await getBoards();
+            setData(boards);
+            setLoading(false);
+        };
+        fetchBoards();
+    }, []);
     const columns = [
         {
             title: 'Title',
@@ -39,11 +52,7 @@ export default function BoardsPage() {
         },
     ];
 
-    const data = [
-        { key: '1', title: 'Q1 Campaign Boards', client: { name: 'Vikcom', email: 'admin@vikcom.io' } },
-        { key: '2', title: 'Summer Sale Assets', client: { name: 'PinkTeam', email: 'contact@pink.io' } },
-        { key: '3', title: 'Mug Design Contest', client: { name: 'Duyen', email: 'team@pink.io' } },
-    ];
+    // Data is fetched via useEffect
 
     return (
         <div>
@@ -57,6 +66,7 @@ export default function BoardsPage() {
             <Table
                 columns={columns}
                 dataSource={data}
+                loading={loading}
                 rowSelection={{ type: 'checkbox' }}
                 pagination={{ pageSize: 10 }}
                 style={{ border: '1px solid #E4E8EB', borderRadius: 8, overflow: 'hidden' }}

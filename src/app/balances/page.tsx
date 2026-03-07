@@ -1,57 +1,68 @@
 "use client";
 import React from 'react';
-import { Table, Button, Input, Space, Card, Typography, Row, Col, DatePicker, Select, Tag } from "antd";
+import { Table, Button, Input, Space, Card, Typography, Row, Col, DatePicker, Select, Tag, Spin } from "antd";
 import { SearchOutlined, ArrowLeftOutlined, BarsOutlined } from "@ant-design/icons";
+import { getBalanceHistory } from '@/actions/balances.actions';
+import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
 export default function BalancesPage() {
+    const [balanceData, setBalanceData] = React.useState<any>(null);
+    const [loading, setLoading] = React.useState(true);
+
+    React.useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            const data = await getBalanceHistory();
+            setBalanceData(data);
+            setLoading(false);
+        };
+        fetchData();
+    }, []);
+
     const statCards = [
-        { title: "Account Balance (PINK)", value: "2,037.00" },
-        { title: "Deposited Pink", value: "0.00" },
-        { title: "Fulfilled Pink", value: "355.5" },
-        { title: "Expired Pink", value: "0" },
+        { title: "Normal Pink Balance", value: balanceData ? balanceData.balances.normal.toLocaleString('en-US', { minimumFractionDigits: 2 }) : "..." },
+        { title: "Monthly Pink Balance", value: balanceData ? balanceData.balances.monthly.toLocaleString('en-US', { minimumFractionDigits: 2 }) : "..." },
+        { title: "Total Pink", value: balanceData ? (balanceData.balances.normal + balanceData.balances.monthly).toLocaleString('en-US', { minimumFractionDigits: 2 }) : "..." },
     ];
 
     const columns = [
         {
-            title: 'Title',
-            dataIndex: 'title',
-            key: 'title',
+            title: 'Package / Activity',
+            dataIndex: 'message',
+            key: 'message',
             render: (text: string) => (
                 <Space>
-                    <div style={{ width: 40, height: 40, background: "#e4e8eb", borderRadius: 4 }}></div>
-                    <a style={{ color: "#3594D0" }}>{text}</a>
+                    <div style={{ width: 40, height: 40, background: "#f0f5ff", borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3594D0', fontWeight: 'bold' }}>P</div>
+                    <Text style={{ color: "#3594D0", fontWeight: 500 }}>{text}</Text>
                 </Space>
             )
         },
-        { title: 'Pink', dataIndex: 'pink', key: 'pink' },
-        { title: 'Amount (VND)', dataIndex: 'amount', key: 'amount' },
-        { title: 'Rate (VND)', dataIndex: 'rate', key: 'rate' },
         {
-            title: 'Package',
-            dataIndex: 'package',
-            key: 'package',
-            render: (pkg: string) => (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <Text style={{ fontSize: 12 }}>CUSTOM</Text>
-                    <Tag color="blue">{pkg}</Tag>
-                </div>
+            title: 'Type',
+            dataIndex: 'message2',
+            key: 'message2',
+            render: (type: string) => (
+                <Tag color={type === 'Monthly' ? 'volcano' : 'blue'}>{type || 'Normal'}</Tag>
             )
         },
-        { title: 'Transaction ID', dataIndex: 'transId', key: 'transId' },
-        { title: 'Created at', dataIndex: 'createdAt', key: 'createdAt', render: (text: string) => <Text type="secondary" style={{ fontSize: 12 }}>{text}</Text> },
-        { title: 'Status', dataIndex: 'status', key: 'status', render: (status: string) => <Text>{status}</Text> },
-        { title: 'Action', dataIndex: 'action', key: 'action', render: (action: string) => <Text>{action}</Text> },
-        { title: 'Note', dataIndex: 'note', key: 'note' },
+        {
+            title: 'Transaction Date',
+            dataIndex: 'createdAt',
+            key: 'createdAt',
+            render: (date: any) => <Text type="secondary">{dayjs(date).format('MMM DD, YYYY HH:mm')}</Text>
+        },
+        {
+            title: 'Status',
+            dataIndex: 'type',
+            key: 'status',
+            render: () => <Tag color="success">Completed</Tag>
+        },
     ];
 
-    const data = [
-        { key: '1', title: 'Team Duyên - Flower Tea Pot Holo Wh', pink: 1, amount: '22,000.00', rate: '22,000.00', package: 'Normal', transId: 'P9DI6OMC66', createdAt: 'Mar 04, 2026 at 11:02:08 AM', status: 'Charged', action: 'fulfilled', note: '' },
-        { key: '2', title: 'Team Duyên - Greenhouse Garden Fund Piggy...', pink: 1.5, amount: '33,000.00', rate: '22,000.00', package: 'Normal', transId: 'OD2VLOWBBA', createdAt: 'Mar 04, 2026 at 11:00:56 AM', status: 'Charged', action: 'fulfilled', note: '' },
-        { key: '3', title: 'TEAM KHÁI - WOODEN BLOCK', pink: 1, amount: '22,000.00', rate: '22,000.00', package: 'Normal', transId: 'BG28JOV7EY', createdAt: 'Mar 04, 2026 at 10:59:30 AM', status: 'Charged', action: 'fulfilled', note: '' },
-    ];
+    // Data is fetched via Server Action
 
     return (
         <div>
@@ -80,7 +91,14 @@ export default function BalancesPage() {
             </div>
 
             <Card styles={{ body: { padding: 0 } }} variant="borderless" style={{ border: '1px solid #E4E8EB', overflow: 'hidden' }}>
-                <Table columns={columns} dataSource={data} pagination={false} />
+                <Spin spinning={loading}>
+                    <Table
+                        columns={columns}
+                        dataSource={balanceData?.history || []}
+                        rowKey="id"
+                        pagination={{ pageSize: 15 }}
+                    />
+                </Spin>
             </Card>
         </div>
     );
